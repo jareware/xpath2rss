@@ -128,6 +128,7 @@ class XPath2RSS {
 		if (isset($this->db[$repl['%guid%']]))
 			return; // we have already seen this item
 
+		$feedURL       = htmlspecialchars($feedURL);
 		$titleTemplate = htmlspecialchars(str_replace(array_keys($repl), array_values($repl), $titleTemplate));
 		$descrTemplate = htmlspecialchars(str_replace(array_keys($repl), array_values($repl), $descrTemplate));
 
