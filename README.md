@@ -11,17 +11,17 @@ It's for keeping up with the updates to those annoying sites that don't provide 
 Installing
 ----------
 
-On a Debian-like system get the dependencies with:
+On a Debian-like system, get the dependencies with:
 
     $ apt-get install php5-cli php5-curl
 
-Then get yourself a copy of xpath2rss.php (might be handy to drop it in your `PATH` somewhere, like under `/usr/bin`).  Feel free to rename it to `xpath2rss` while you're at it if you don't like the extension (the interpreter is specified in the file).
+Then get yourself a copy of `xpath2rss.php` (might be handy to drop it in your `PATH` somewhere, like under `/usr/bin`).  Feel free to rename it to `xpath2rss` while you're at it if you don't like the extension (the interpreter is specified in the file).
 
 To see that it's a-OK, try running:
 
     $ xpath2rss
 
-You should see a usage message.  PHP 5.3+ is recommended, but the script should run with anything 5+.
+You should see a usage message.  PHP 5.3+ is recommended, but the script should run with anything 5.1+.
 
 Usage
 -----
@@ -32,9 +32,14 @@ The command expects a path to a configuration file as its only argument.  The co
 
 You'll see some useful info.
 
-XPath2RSS essentially maintains a hash-map in the generated RSS-file: the key and the value are queried from the HTML with your XPath expressions.  If a new key is encountered, it's added to the feed.  If the key has already been seen, it won't be added again.
-
 The script is likely most useful when ran from a cron-like facility periodically.
+
+Notes
+-----
+
+Each RSS item has a GUID.  Once an item has been added to the feed, an item with the same GUID won't be added again.
+
+The GUID, along with other optional variables, are specified under the `[vars]` heading of the configuration file.  The content of each variable is determined by its XPath.  Any `%var%`s found in the `title` and `description` templates of an RSS item are expanded to their value.
 
 Examples
 --------
@@ -43,29 +48,38 @@ Examples
 
 To get a feed from one popular webcomic (yes, they already have one but this came to mind first), set up an `xkcd.ini` along these lines:
 
-    feedTitle = "xkcd"
-    fromURL = "http://xkcd.com/"
-    toFile = "/path/to/your/webroot/xkcd.xml"
-    keyXPath = "//div[@id='middleContent']//img/@alt"
-    valXPath = "//div[@id='middleContent']//img/@src"
-    descrTemplate = "<img src='%val%' />"
+    feed = "xkcd"
+    url = "http://xkcd.com/"
+    file = "/home/jarno/xpath2rss/xkcd.xml"
+    title = "%guid%"
+    description = "<img src='%image%' /> <p>%text%</p>"
+    
+    [vars]
+    
+    guid = "//div[@id='middleContent']//img/@alt"
+    image = "//div[@id='middleContent']//img/@src"
+    text = "//div[@id='middleContent']//img/@title"
 
 And run:
 
     $ xpath2rss --test xkcd.ini
 
-You should see the name of the latest comic as the key and its URL as the value.
+You should see the name of the latest comic as the `guid` and the other vars populated as well.
 
 ### Episodic YouTube-content ###
 
-Some good stuff on YouTube doesn't have its own channel (from which you could get a feed directly).  To gather a feed from the search page, you could do something like:
+Some good stuff on YouTube don't have their own channel (from which you could get a feed directly).  To scrape a feed from the search page, you could do something like:
 
-    feedTitle = "When Cheese Fails"
-    fromURL = "http://www.youtube.com/results?search_type=videos&search_query=when+cheese+fails&search_sort=video_date_uploaded"
-    toFile = "/path/to/your/webroot/whencheesefails.xml"
-    keyXPath = "//div[@id='search-results']//a[ contains(@title, 'Season') and contains(@title, 'Episode') ]/@title"
-    valXPath = "//div[@id='search-results']//a[ contains(@title, 'Season') and contains(@title, 'Episode') ]/@href"
-    descrTemplate = "<a href='http://www.youtube.com%val%'>View on YouTube</a>"
+    feed = "When Cheese Fails"
+    url = "http://www.youtube.com/results?search_type=videos&search_query=when+cheese+fails&search_sort=video_date_uploaded"
+    file = "/home/jarno/xpath2rss/whencheesefails.xml"
+    title = "%guid%"
+    description = "<a href='http://www.youtube.com%link%'>View on YouTube</a>"
+    
+    [vars]
+    
+    guid = "//div[@id='search-results']//a[ contains(@title, 'Season') and contains(@title, 'Episode') ]/@title"
+    link = "//div[@id='search-results']//a[ contains(@title, 'Season') and contains(@title, 'Episode') ]/@href"
 
 This works because the search results are ordered newest first, and the XPath expressions will always use the first match if multiple are found.
 
