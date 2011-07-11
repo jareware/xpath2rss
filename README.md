@@ -21,7 +21,7 @@ To see that it's a-OK, try running:
 
     $ xpath2rss
 
-You should see a usage message.
+You should see a usage message.  PHP 5.3+ is recommended, but the script should run with anything 5+.
 
 Usage
 -----
@@ -34,7 +34,7 @@ You'll see some useful info.
 
 XPath2RSS essentially maintains a hash-map in the generated RSS-file: the key and the value are queried from the HTML with your XPath expressions.  If a new key is encountered, it's added to the feed.  If the key has already been seen, it won't be added again.
 
-The script is likely most useful ran from a cron-like facility periodically.
+The script is likely most useful when ran from a cron-like facility periodically.
 
 Examples
 --------
