@@ -32,25 +32,26 @@ class XPath2RSS {
 	/**
 	 * Retrieves the HTML-document from the given URL and loads it into the object.
 	 * 
-	 * The need to @-suppress errors here because the HTML is VERY likely not well-formed (X)HTML.
+	 * We need to @-suppress errors here because the HTML is VERY likely not well-formed (X)HTML and there's no other
+	 * way to keep the DOM-extension quiet.
 	 * 
 	 * @param $fromURL Where to get the HTML from
 	 */
 	public function loadHTML($fromURL) {
 
 		@$this->doc = DOMDocument::loadHTML($this->wget($fromURL));
-		
+
 	}
 
 	/**
 	 * Runs the given XPath expression on the contained HTML document and returns the result as scalar, if any.
 	 * 
-	 * @throws Exception if the XPath doesn't match exactly one element
+	 * @throws Exception if the XPath doesn't match any elements
 	 * 
 	 * @param $expression XPath to run
 	 */
 	public function xpath($expression) {
-	
+
 		$xpath = new DOMXPath($this->doc);
 		$result = $xpath->query($expression);
 
@@ -76,7 +77,7 @@ class XPath2RSS {
 
 		if (!function_exists('curl_init')) // fall back to file_get_contents if CURL extension is not available
 			return @file_get_contents($url);
-		
+
 		$curlOptions = array(
 			CURLOPT_USERAGENT	=> self::HTTP_USERAGENT,	// The contents of the "User-Agent: " header to be used in a HTTP request.
 			CURLOPT_URL		=> $url,			// The URL to fetch.
@@ -86,57 +87,71 @@ class XPath2RSS {
 			CURLOPT_TIMEOUT		=> self::HTTP_TIMEOUT,		// The maximum number of seconds to allow cURL functions to execute.
 			CURLOPT_RETURNTRANSFER	=> true,			// TRUE to return the transfer as a string of the return value of curl_exec() instead of outputting it out directly.
 			);
-		
+
 		$handle = curl_init();
-		
+
 		curl_setopt_array($handle, $curlOptions);
-		
+
 		$result		= curl_exec($handle);
 		$curlInfo	= curl_getinfo($handle);
-		
+
 		curl_close($handle);
-		
+
 		if (empty($curlInfo['http_code']))
 			throw new Exception('Connection error');
-		
+
 		if ($curlInfo['http_code'] != 200)
 			throw new Exception("HTTP Error: {$curlInfo['http_code']}");
-		
+
 		return $result;
-	
+
 	}
 
 	/**
 	 * Scrapes the contained HTML document with the given XPath expressions and updates the internal item DB.
 	 * 
-	 * @param $keyXPath String to use as the key 
-	 * @param $valXPath String to use as the value
+	 * @param $vars          Which variables to extract from the document
+	 * @param $feedURL       What to report as the origin link of the feed
+	 * @param $titleTemplate Template for title-tag
+	 * @param $descrTemplate Template for description-tag
 	 */
-	public function scrape($keyXPath, $valXPath) {
-		
-		$key = $this->xpath($keyXPath);
-		$val = $this->xpath($valXPath);
+	public function scrape(array $vars, $feedURL, $titleTemplate, $descrTemplate) {
 
-		if (!isset($this->db[$key]))
-			$this->db[$key] = $val;
-		
+		if (empty($vars['guid']))
+			throw new Exception("A var called 'guid' must always be defined");
+
+		$repl = array();
+
+		foreach ($vars as $key => $value)
+			$repl["%$key%"] = htmlspecialchars($this->xpath($value));
+
+		if (isset($this->db[$repl['%guid%']]))
+			return; // we have already seen this item
+
+		$titleTemplate = htmlspecialchars(str_replace(array_keys($repl), array_values($repl), $titleTemplate));
+		$descrTemplate = htmlspecialchars(str_replace(array_keys($repl), array_values($repl), $descrTemplate));
+
+		$this->db[$repl['%guid%']] = "<item>
+					<title>$titleTemplate</title>
+					<link>$feedURL</link>
+					<guid isPermaLink=\"false\">{$repl['%guid%']}</guid>
+					<pubDate>" . date(DATE_RFC822) . "</pubDate>
+					<description>$descrTemplate</description>
+				</item>";
+
 	}
 
 	/**
 	 * Returns the contents of the internal item DB as an RSS feed, as a string.
 	 * 
-	 * In the templates, %key% and %val% expand to the key and value, respectively.
-	 * 
 	 * @param $feedTitle     What to report as the feed name
 	 * @param $feedURL       What to report as the origin link of the feed
-	 * @param $titleTemplate Template for title-tag
-	 * @param $descrTemplate Template for description-tag
 	 */
-	public function getRSS($feedTitle, $feedURL, $titleTemplate = null, $descrTemplate = null) {
+	public function getRSS($feedTitle, $feedURL) {
 
 		$feedTitle = htmlspecialchars($feedTitle);
 		$feedURL   = htmlspecialchars($feedURL);
-		
+
 		$rss = "<?xml version=\"1.0\"?>
 			<rss version=\"2.0\">
 				<channel>
@@ -144,22 +159,8 @@ class XPath2RSS {
 					<link>$feedURL</link>
 					<description></description>";
 
-		foreach ($this->db as $key => $val) {
-
-			$key         = htmlspecialchars($key);
-			$val         = htmlspecialchars($val);
-			$expansions  = array('%key%' => $key, '%val%' => $val);
-			$title       = str_replace(array_keys($expansions), array_values($expansions), $titleTemplate ? $titleTemplate : '%key%');
-			$description = str_replace(array_keys($expansions), array_values($expansions), $descrTemplate ? $descrTemplate : '%val%');
-			$description = htmlspecialchars("<!-- XPath2RSS: $val -->$description");
-			$rss        .= "<item>
-					<title>$title</title>
-					<link>$feedURL</link>
-					<guid isPermaLink=\"false\">$key</guid>
-					<description>$description</description>
-				</item>";
-
-		}
+		foreach ($this->db as $itemXML)
+			$rss .= $itemXML;
 
 		$rss .= '</channel></rss>';
 
@@ -179,16 +180,17 @@ class XPath2RSS {
 	 * 
 	 * @param $toFile Filename to write to
 	 */
-	public function writeRSS($toFile, $feedTitle, $feedURL, $titleTemplate = null, $descrTemplate = null) {
+	public function writeRSS($toFile, $feedTitle, $feedURL) {
 
-		file_put_contents($toFile, $this->getRSS($feedTitle, $feedURL, $titleTemplate, $descrTemplate));
+		file_put_contents($toFile, $this->getRSS($feedTitle, $feedURL));
 
 	}
 
 	/**
 	 * Reads an RSS file in from the disk, and imports its contents as the internal items DB.
 	 * 
-	 * This is in essence all items that have been previously added.  Missing files are ignored, so that the first run will be smooth.
+	 * This is in essence all items that have been previously added.  Missing files are ignored, so that the first run
+	 * will be smooth.
 	 * 
 	 * @param $fromFile Filename to read from
 	 */
@@ -200,14 +202,8 @@ class XPath2RSS {
 		$doc = new SimpleXMLElement($fromFile, 0, true);
 		$this->db = array();
 
-		foreach ($doc->channel->item as $item) {
-			
-			$key = $item->guid;
-			$val = preg_replace('/^.*<!-- XPath2RSS: (.+) -->.*$/', '$1', $item->description);
-
-			$this->db[trim($key)] = trim($val);
-
-		}
+		foreach ($doc->channel->item as $item)
+			$this->db["$item->guid"] = $item->asXML();
 
 	}
 
@@ -225,9 +221,9 @@ class XPath2RSS {
 		if (!is_readable($fromFile))
 			throw new Exception("Expected ini-file '$fromFile' was not readable");
 
-		@$ini = parse_ini_file($fromFile);
+		@$ini = parse_ini_file($fromFile, true);
 
-		if ($ini === false || empty($ini))
+		if (!$ini)
 			throw new Exception("Expected ini-file '$fromFile' failed to parse");
 
 		return $ini;
@@ -243,10 +239,10 @@ if (!empty($argv[1]) && empty($argv[2])) { // Read config from .ini file and exe
 
 	$conf = XPath2RSS::parseINI($argv[1]);
 
-	$w->loadRSS($conf['toFile']);
-	$w->loadHTML($conf['fromURL']);
-	$w->scrape($conf['keyXPath'], $conf['valXPath']);
-	$w->writeRSS($conf['toFile'], $conf['feedTitle'], $conf['fromURL'], $conf['titleTemplate'], $conf['descrTemplate']);
+	$w->loadRSS($conf['file']);
+	$w->loadHTML($conf['url']);
+	$w->scrape($conf['vars'], $conf['url'], $conf['title'], $conf['description']);
+	$w->writeRSS($conf['file'], $conf['feed'], $conf['url']);
 
 	exit(0);
 
@@ -257,33 +253,41 @@ if (!empty($argv[1]) && empty($argv[2])) { // Read config from .ini file and exe
 	echo "\nConfiguration from \"{$argv[2]}\":\n\n";
 
 	foreach ($conf as $key => $value)
-		echo "\t$key => \"$value\"\n";
+		if ($key !== 'vars')
+			echo "\t$key => \"$value\"\n";
 
-	echo "\nCurrent item DB from \"{$conf['toFile']}\":\n\n";
+	echo "\nCurrent guids in \"{$conf['file']}\":\n\n";
 
-	$w->loadRSS($conf['toFile']);
+	$w->loadRSS($conf['file']);
 
 	foreach ($w->getDB() as $key => $value)
-		echo "\t\"$key\" => \"$value\"\n";
+		echo "\t\"$key\"\n";
 
-	echo "\nXPath matches against \"{$conf['fromURL']}\":\n\n";
+	echo "\nXPath expressions from [vars]:\n\n";
 
-	$w->loadHTML($conf['fromURL']);
+	foreach ($conf['vars'] as $key => $value)
+		echo "\t$key => \"$value\"\n";
 
-	echo "\tkeyXPath => \"{$w->xpath($conf['keyXPath'])}\"\n";
-	echo "\tvalXPath => \"{$w->xpath($conf['valXPath'])}\"\n\n";
+	echo "\nXPath matches against \"{$conf['url']}\":\n\n";
+
+	$w->loadHTML($conf['url']);
+
+	foreach ($conf['vars'] as $key => $value)
+		echo "\t$key => \"{$w->xpath($value)}\"\n";
+
+	echo "\n";
 
 	exit(0);
 
-} else if (!empty($argv[1]) && $argv[1] === '--dry-run') { // Run in dry-run mode
+} else if (!empty($argv[1]) && $argv[1] === '--dry-run') { // Dry-run mode
 
 	$conf = XPath2RSS::parseINI($argv[2]);
 
-	$w->loadRSS($conf['toFile']);
-	$w->loadHTML($conf['fromURL']);
-	$w->scrape($conf['keyXPath'], $conf['valXPath']);
+	$w->loadRSS($conf['file']);
+	$w->loadHTML($conf['url']);
+	$w->scrape($conf['vars'], $conf['url'], $conf['title'], $conf['description']);
 
-	echo $w->getRSS($conf['feedTitle'], $conf['fromURL'], $conf['titleTemplate'], $conf['descrTemplate']);
+	echo $w->getRSS($conf['feed'], $conf['url']);
 
 	exit(0);
 
@@ -306,7 +310,6 @@ Where:
 
 Notes:
 
-	The script uses the CURL-extension when available to spoof its User Agent -header (to not
+	The script uses the CURL-extension when available to spoof its User-Agent -header (to not
 	look like a scraper).  To get in on the fun, try $ apt-get install php5-curl (assuming a
 	Debian-like system).
-
