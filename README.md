@@ -50,7 +50,7 @@ To get a feed from one popular webcomic (yes, they already have one but this cam
 
     feed = "xkcd"
     url = "http://xkcd.com/"
-    file = "/home/jarno/xpath2rss/xkcd.xml"
+    file = "/path/to/webroot/xkcd.xml"
     title = "%guid%"
     description = "<img src='%image%' /> <p>%text%</p>"
     
@@ -72,7 +72,7 @@ Some good stuff on YouTube don't have their own channel (from which you could ge
 
     feed = "When Cheese Fails"
     url = "http://www.youtube.com/results?search_type=videos&search_query=when+cheese+fails&search_sort=video_date_uploaded"
-    file = "/home/jarno/xpath2rss/whencheesefails.xml"
+    file = "/path/to/webroot/whencheesefails.xml"
     title = "%guid%"
     description = "<a href='http://www.youtube.com%link%'>View on YouTube</a>"
     
