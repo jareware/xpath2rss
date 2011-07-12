@@ -3,6 +3,8 @@ XPath2RSS
 
 A simple web scraper for querying HTML documents with XPath and turning the results into an RSS feed.
 
+It's in PHP because it's a good glue for anything web-related, and it uses XPaths because they're awesome to work with.
+
 What's it for
 -------------
 
@@ -46,7 +48,7 @@ Examples
 
 ### A webcomic ###
 
-To get a feed from one popular webcomic (yes, they already have one but this came to mind first), set up an `xkcd.ini` along these lines:
+To get a feed from one popular webcomic (yes, they already have one), set up an `xkcd.ini` along these lines:
 
     feed = "xkcd"
     url = "http://xkcd.com/"
@@ -64,7 +66,7 @@ And run:
 
     $ xpath2rss --test xkcd.ini
 
-You should see the name of the latest comic as the `guid` and the other vars populated as well.
+You should see the name of the latest comic as the `guid` and the other vars populated as well.  The `<p>%text%</p>` has the added benefit of being able to read the image title text with devices without a cursor (say, a phone).
 
 ### Episodic YouTube-content ###
 
