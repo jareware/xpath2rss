@@ -13,6 +13,8 @@ class XPath2RSS {
 	const HTTP_CONNECTTIMEOUT	= 60;
 	const HTTP_TIMEOUT		= 120;
 	const HTTP_USERAGENT		= 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.100 Safari/534.30';
+	const EXC_HARD			= 0;
+	const EXC_SOFT			= 1;
 
 	protected $doc;
 	protected $db = array();
@@ -56,9 +58,9 @@ class XPath2RSS {
 		$result = $xpath->query($expression);
 
 		if (!$result instanceof DOMNodeList)
-			throw new Exception("Invalid expression '$expression'");
+			throw new Exception("Invalid expression '$expression'", self::EXC_HARD);
 		else if ($result->length == 0)
-			throw new Exception("The expression '$expression' didn't match anything");
+			throw new Exception("The expression '$expression' didn't match anything", self::EXC_SOFT);
 
 		return trim($result->item(0)->textContent);
 
@@ -98,10 +100,10 @@ class XPath2RSS {
 		curl_close($handle);
 
 		if (empty($curlInfo['http_code']))
-			throw new Exception('Connection error');
+			throw new Exception('Connection error', self::EXC_SOFT);
 
 		if ($curlInfo['http_code'] != 200)
-			throw new Exception("HTTP Error: {$curlInfo['http_code']}");
+			throw new Exception("HTTP Error: {$curlInfo['http_code']}", self::EXC_SOFT);
 
 		return $result;
 
@@ -118,7 +120,7 @@ class XPath2RSS {
 	public function scrape(array $vars, $feedURL, $titleTemplate, $descrTemplate) {
 
 		if (empty($vars['guid']))
-			throw new Exception("A var called 'guid' must always be defined");
+			throw new Exception("A var called 'guid' must always be defined", self::EXC_HARD);
 
 		$repl = array();
 
@@ -220,12 +222,12 @@ class XPath2RSS {
 	public static function parseINI($fromFile) {
 
 		if (!is_readable($fromFile))
-			throw new Exception("Expected ini-file '$fromFile' was not readable");
+			throw new Exception("Expected ini-file '$fromFile' was not readable", self::EXC_HARD);
 
 		@$ini = parse_ini_file($fromFile, true);
 
 		if (!$ini)
-			throw new Exception("Expected ini-file '$fromFile' failed to parse");
+			throw new Exception("Expected ini-file '$fromFile' failed to parse", self::EXC_HARD);
 
 		return $ini;
 
@@ -236,14 +238,34 @@ class XPath2RSS {
 $argv = $_SERVER['argv'];
 $w = new XPath2RSS();
 
-if (!empty($argv[1]) && empty($argv[2])) { // Read config from .ini file and execute
+if (
+	!empty($argv[1])
+	&&
+	(
+		empty($argv[2])
+		||
+		$argv[1] === '--gentle'
+		&&
+		!empty($argv[2])
+	)
+) { // Read config from .ini file and execute
 
-	$conf = XPath2RSS::parseINI($argv[1]);
+	try {
 
-	$w->loadRSS($conf['file']);
-	$w->loadHTML($conf['url']);
-	$w->scrape($conf['vars'], $conf['url'], $conf['title'], $conf['description']);
-	$w->writeRSS($conf['file'], $conf['feed'], $conf['url']);
+		$gentle = $argv[1] === '--gentle';
+		$conf = XPath2RSS::parseINI($argv[$gentle ? 2 : 1]);
+
+		$w->loadRSS($conf['file']);
+		$w->loadHTML($conf['url']);
+		$w->scrape($conf['vars'], $conf['url'], $conf['title'], $conf['description']);
+		$w->writeRSS($conf['file'], $conf['feed'], $conf['url']);
+
+	} catch (Exception $e) {
+
+		if (!$gentle || $e->getCode() !== XPath2RSS::EXC_SOFT)
+			throw $e;
+
+	}
 
 	exit(0);
 
@@ -301,12 +323,13 @@ XPath2RSS
 
 Usage:
 
-	xpath2rss.php [ --test | --dry-run ] <filename>
+	xpath2rss.php [ --test | --dry-run | --gentle ] <filename>
 
 Where:
 
 	--test     will trigger test mode, reporting about the expressions used, etc
 	--dry-run  will run as normal but will write RSS to stdout instead of disk
+	--gentle   will silently tolerate errors that may be temporary (e.g. connectivity ones)
 	<filename> is the path to an ini-file containing configuration settings
 
 Notes:
@@ -314,3 +337,4 @@ Notes:
 	The script uses the CURL-extension when available to spoof its User-Agent -header (to not
 	look like a scraper).  To get in on the fun, try $ apt-get install php5-curl (assuming a
 	Debian-like system).
+
