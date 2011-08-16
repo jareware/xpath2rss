@@ -36,6 +36,18 @@ You'll see some useful info.
 
 The script is likely most useful when ran from a cron-like facility periodically.
 
+Configuration
+-------------
+
+A configuration file must contain the following properties:
+
+* `feed` - Name of the feed.  This will appear as the `<title>` of the RSS feed.
+* `url` - URL from which to load the HTML that will be scraped.
+* `file` - Path to an XML file that will host the RSS feed (likely under your webroot somewhere so an RSS reader can access it).
+* `title` - Template for the contents of the `<title>` for a single item in the RSS feed.  If this template contains any `%variables%`, they are replaced with the corresponding XPath matches from `[vars]`.
+* `description` - Same as above, but for the `<description>` tag.
+* `[vars]` - Any number of XPath expressions that will be used to scrape content from the page at `url`.  If the name of the var is `foo`, then it will be usable in the `title` and `description` fields as `%foo%`.  The only mandatory var is `guid`.
+
 Notes
 -----
 
