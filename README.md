@@ -46,6 +46,7 @@ A configuration file must contain the following properties:
 * `file` - Path to an XML file that will host the RSS feed (likely under your webroot somewhere so an RSS reader can access it).
 * `title` - Template for the contents of the `<title>` for a single item in the RSS feed.  If this template contains any `%variables%`, they are replaced with the corresponding XPath matches from `[vars]`.
 * `description` - Same as above, but for the `<description>` tag.
+* `context` - An (optional) XPath expression to select a context node for any following expressions under `[vars]` below.  Use this to avoid repetition of the same search prefix in multiple variables.  See Examples.
 * `[vars]` - Any number of XPath expressions that will be used to scrape content from the page at `url`.  If the name of the var is `foo`, then it will be usable in the `title` and `description` fields as `%foo%`.  The only mandatory var is `guid`.
 
 Notes
@@ -89,13 +90,14 @@ Some good stuff on YouTube don't have their own channel (from which you could ge
     file = "/path/to/webroot/whencheesefails.xml"
     title = "%guid%"
     description = "<a href='http://www.youtube.com%link%'>View on YouTube</a>"
+    context = "//div[@id='search-results']//a[ contains(@title, 'Season') and contains(@title, 'Episode') ]"
     
     [vars]
     
-    guid = "//div[@id='search-results']//a[ contains(@title, 'Season') and contains(@title, 'Episode') ]/@title"
-    link = "//div[@id='search-results']//a[ contains(@title, 'Season') and contains(@title, 'Episode') ]/@href"
+    guid = "@title"
+    link = "@href"
 
-This works because the search results are ordered newest first, and the XPath expressions will always use the first match if multiple are found.
+This works because the search results are ordered newest first, and the XPath expressions will always use the first match if multiple are found.  Also, since the search query is a bit long-winded, we use the optional `context` option to first select the matching context node.  After that, any `[vars]` we declare will use that node as their context.  Note that the same could have been done with the webcomic example.
 
 See also
 --------

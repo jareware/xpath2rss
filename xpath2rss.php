@@ -51,18 +51,30 @@ class XPath2RSS {
 	 * @throws Exception if the XPath doesn't match any elements
 	 * 
 	 * @param $expression XPath to run
+	 * @param $context Another XPath to use as the context for the previous one
 	 */
-	public function xpath($expression) {
+	public function xpath($expression, $context = null) {
+
+		return trim($this->xpathNode($expression, $context)->textContent);
+
+	}
+
+	/**
+	 * Implementation for self::xpath().
+	 * 
+	 * @see self::xpath()
+	 */
+	private function xpathNode($expression, $context = null) {
 
 		$xpath = new DOMXPath($this->doc);
-		$result = $xpath->query($expression);
+		$result = $xpath->query($expression, $context ? $this->xpathNode($context) : null);
 
 		if (!$result instanceof DOMNodeList)
 			throw new Exception("Invalid expression '$expression'", self::EXC_HARD);
 		else if ($result->length == 0)
 			throw new Exception("The expression '$expression' didn't match anything", self::EXC_SOFT);
 
-		return trim($result->item(0)->textContent);
+		return $result->item(0);
 
 	}
 
@@ -113,11 +125,12 @@ class XPath2RSS {
 	 * Scrapes the contained HTML document with the given XPath expressions and updates the internal item DB.
 	 * 
 	 * @param $vars          Which variables to extract from the document
+	 * @param $context       An optional context node (as an XPath expression)
 	 * @param $feedURL       What to report as the origin link of the feed
 	 * @param $titleTemplate Template for title-tag
 	 * @param $descrTemplate Template for description-tag
 	 */
-	public function scrape(array $vars, $feedURL, $titleTemplate, $descrTemplate) {
+	public function scrape(array $vars, $context, $feedURL, $titleTemplate, $descrTemplate) {
 
 		if (empty($vars['guid']))
 			throw new Exception("A var called 'guid' must always be defined", self::EXC_HARD);
@@ -125,7 +138,7 @@ class XPath2RSS {
 		$repl = array();
 
 		foreach ($vars as $key => $value)
-			$repl["%$key%"] = htmlspecialchars($this->xpath($value));
+			$repl["%$key%"] = htmlspecialchars($this->xpath($value, $context));
 
 		if (isset($this->db[$repl['%guid%']]))
 			return; // we have already seen this item
@@ -229,6 +242,9 @@ class XPath2RSS {
 		if (!$ini)
 			throw new Exception("Expected ini-file '$fromFile' failed to parse", self::EXC_HARD);
 
+		if (empty($ini['context']))
+			$ini['context'] = null;
+
 		return $ini;
 
 	}
@@ -257,7 +273,7 @@ if (
 
 		$w->loadRSS($conf['file']);
 		$w->loadHTML($conf['url']);
-		$w->scrape($conf['vars'], $conf['url'], $conf['title'], $conf['description']);
+		$w->scrape($conf['vars'], $conf['context'], $conf['url'], $conf['title'], $conf['description']);
 		$w->writeRSS($conf['file'], $conf['feed'], $conf['url']);
 
 	} catch (Exception $e) {
@@ -296,7 +312,7 @@ if (
 	$w->loadHTML($conf['url']);
 
 	foreach ($conf['vars'] as $key => $value)
-		echo "\t$key => \"{$w->xpath($value)}\"\n";
+		echo "\t$key => \"{$w->xpath($value, $conf['context'])}\"\n";
 
 	echo "\n";
 
@@ -308,7 +324,7 @@ if (
 
 	$w->loadRSS($conf['file']);
 	$w->loadHTML($conf['url']);
-	$w->scrape($conf['vars'], $conf['url'], $conf['title'], $conf['description']);
+	$w->scrape($conf['vars'], $conf['context'], $conf['url'], $conf['title'], $conf['description']);
 
 	echo $w->getRSS($conf['feed'], $conf['url']);
 
