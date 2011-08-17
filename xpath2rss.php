@@ -89,7 +89,7 @@ class XPath2RSS {
 	 */
 	public function wget($url) {
 
-		if (!function_exists('curl_init')) // fall back to file_get_contents if CURL extension is not available
+		if (!function_exists('curl_init') || defined('XPATH2RSS_TEST')) // fall back to file_get_contents if CURL extension is not available
 			return @file_get_contents($url);
 
 		$curlOptions = array(
@@ -250,6 +250,9 @@ class XPath2RSS {
 	}
 
 }
+
+if (defined('XPATH2RSS_TEST'))
+	return; // we're running the test suite
 
 $argv = $_SERVER['argv'];
 $w = new XPath2RSS();
