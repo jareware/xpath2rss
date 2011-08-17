@@ -16,8 +16,8 @@ class XPath2RSSTest extends PHPUnit_Framework_TestCase {
 	private $fixtPath;
 
 	/**
-	 * Sets up the fixture, for example, opens a network connection.
-	 * This method is called before a test is executed.
+	 * Calculates a file://-URL to the fixtures path.
+	 * 
 	 */
 	protected function setUp() {
 
@@ -31,6 +31,15 @@ class XPath2RSSTest extends PHPUnit_Framework_TestCase {
 		$x->loadHTML($this->fixtPath . 'test.html');
 
 		$this->assertEquals('Hello', $actual = $x->xpath('//p'));
+
+	}
+
+	public function testContextfulXPath() {
+
+		$x = new XPath2RSS();
+		$x->loadHTML($this->fixtPath . 'test.html');
+
+		$this->assertEquals('Hello', $actual = $x->xpath('p', '//article'));
 
 	}
 

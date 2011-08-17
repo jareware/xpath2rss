@@ -67,7 +67,7 @@ class XPath2RSS {
 	private function xpathNode($expression, $context = null) {
 
 		$xpath = new DOMXPath($this->doc);
-		$result = $xpath->query($expression, $context ? $this->xpathNode($context) : null);
+		$result = $context ? $xpath->query($expression, $this->xpathNode($context)) : $xpath->query($expression);
 
 		if (!$result instanceof DOMNodeList)
 			throw new Exception("Invalid expression '$expression'", self::EXC_HARD);
