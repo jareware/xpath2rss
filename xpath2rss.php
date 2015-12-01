@@ -154,7 +154,7 @@ class XPath2RSS {
 					<title>$titleTemplate</title>
 					<link>$feedLink</link>
 					<guid isPermaLink=\"false\">{$repl['%guid%']}</guid>
-					<pubDate>" . date(DATE_RFC822) . "</pubDate>
+					<pubDate>" . date(DATE_RSS) . "</pubDate>
 					<description>$descrTemplate</description>
 				</item>";
 
