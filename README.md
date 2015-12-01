@@ -46,6 +46,7 @@ A configuration file must contain the following properties:
 * `file` - Path to an XML file that will host the RSS feed (likely under your webroot somewhere so an RSS reader can access it).
 * `title` - Template for the contents of the `<title>` for a single item in the RSS feed.  If this template contains any `%variables%`, they are replaced with the corresponding XPath matches from `[vars]`.
 * `description` - Same as above, but for the `<description>` tag.
+* `link` - Same as above, but optional and for the `<link>` tag. If this is not specified, the (global) `url` will be used.
 * `context` - An (optional) XPath expression to select a context node for any following expressions under `[vars]` below.  Use this to avoid repetition of the same search prefix in multiple variables.  See Examples.
 * `[vars]` - Any number of XPath expressions that will be used to scrape content from the page at `url`.  If the name of the var is `foo`, then it will be usable in the `title` and `description` fields as `%foo%`.  The only mandatory var is `guid`.
 

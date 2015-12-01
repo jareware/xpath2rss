@@ -130,7 +130,7 @@ class XPath2RSS {
 	 * @param $titleTemplate Template for title-tag
 	 * @param $descrTemplate Template for description-tag
 	 */
-	public function scrape(array $vars, $context, $feedURL, $titleTemplate, $descrTemplate) {
+	public function scrape(array $vars, $context, $feedURL, $linkTemplate, $titleTemplate, $descrTemplate) {
 
 		if (empty($vars['guid']))
 			throw new Exception("A var called 'guid' must always be defined", self::EXC_HARD);
@@ -143,13 +143,16 @@ class XPath2RSS {
 		if (isset($this->db[$repl['%guid%']]))
 			return; // we have already seen this item
 
-		$feedURL       = htmlspecialchars($feedURL);
+		if(!empty($linkTemplate))
+			$feedLink = htmlspecialchars(str_replace(array_keys($repl), array_values($repl), $linkTemplate));
+		else
+			$feedLink = htmlspecialchars($feedURL);
 		$titleTemplate = htmlspecialchars(str_replace(array_keys($repl), array_values($repl), $titleTemplate));
 		$descrTemplate = htmlspecialchars(str_replace(array_keys($repl), array_values($repl), $descrTemplate));
 
 		$this->db[$repl['%guid%']] = "<item>
 					<title>$titleTemplate</title>
-					<link>$feedURL</link>
+					<link>$feedLink</link>
 					<guid isPermaLink=\"false\">{$repl['%guid%']}</guid>
 					<pubDate>" . date(DATE_RFC822) . "</pubDate>
 					<description>$descrTemplate</description>
@@ -245,6 +248,9 @@ class XPath2RSS {
 		if (empty($ini['context']))
 			$ini['context'] = null;
 
+		if (empty($ini['link']))
+			$ini['link'] = null;
+
 		return $ini;
 
 	}
@@ -276,7 +282,7 @@ if (
 
 		$w->loadRSS($conf['file']);
 		$w->loadHTML($conf['url']);
-		$w->scrape($conf['vars'], $conf['context'], $conf['url'], $conf['title'], $conf['description']);
+		$w->scrape($conf['vars'], $conf['context'], $conf['url'], $conf['link'], $conf['title'], $conf['description']);
 		$w->writeRSS($conf['file'], $conf['feed'], $conf['url']);
 
 	} catch (Exception $e) {
@@ -327,7 +333,7 @@ if (
 
 	$w->loadRSS($conf['file']);
 	$w->loadHTML($conf['url']);
-	$w->scrape($conf['vars'], $conf['context'], $conf['url'], $conf['title'], $conf['description']);
+	$w->scrape($conf['vars'], $conf['context'], $conf['url'], $conf['link'], $conf['title'], $conf['description']);
 
 	echo $w->getRSS($conf['feed'], $conf['url']);
 
